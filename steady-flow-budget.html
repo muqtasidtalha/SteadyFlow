@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Steady Flow | Irregular Income Budget</title>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--tx:#16202a;--mu:#657280;--ac:#2b59c3;--bd:#dde3ea;--bad:#c8412f;--ok:#1f8a5b;--buf:#d89b1d;--in:#f3f6fa}
+[data-t=dark]{--bg:#0f1620;--card:#18222e;--tx:#e6edf4;--mu:#8b9aaa;--ac:#6f95f0;--bd:#263443;--bad:#f0806d;--ok:#4cc38a;--buf:#e6b64a;--in:#111b26}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 14px 90px}
+h1{font-size:15px;margin:0 0 12px;font-weight:600;color:var(--mu)}
+h2{font-size:17px;margin:20px 0 8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:12px}
+.big{font:600 46px/1.1 "Iowan Old Style",Georgia,serif;letter-spacing:-.5px}
+.neg{color:var(--bad)}.mu{color:var(--mu);font-size:14px}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--bd);display:flex;justify-content:center;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;max-width:110px;background:none;border:0;padding:13px 4px;font-size:13px;color:var(--mu);cursor:pointer;border-top:3px solid transparent}
+nav button.on{color:var(--ac);border-top-color:var(--ac);font-weight:600}
+input,select,button{font:inherit}
+input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--in);color:var(--tx);min-width:0}
+.row{display:flex;gap:8px;margin-bottom:8px}.row>*{flex:1}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;font-weight:600}
+.btn.g{background:none;color:var(--ac);border:1px solid var(--bd)}.btn.s{padding:5px 10px;font-size:13px}
+.btn.d{background:none;color:var(--bad);border:1px solid var(--bd)}
+:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--bd)}
+.li:last-child{border:0}.li b{font-weight:600}.li .r{text-align:right;white-space:nowrap}
+.bar{display:flex;height:16px;border-radius:8px;overflow:hidden;background:var(--in);margin:12px 0 8px}
+.bar i{display:block;height:100%}
+.key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mu)}
+.key span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;background:var(--c)}
+.ch{display:flex;align-items:flex-end;gap:10px;height:130px;margin-top:8px}
+.ch div{flex:1;text-align:center;font-size:12px;color:var(--mu)}
+.ch .p{display:flex;gap:3px;align-items:flex-end;height:100px}.ch .p i{flex:1;border-radius:3px 3px 0 0;min-height:2px}
+.cat{margin:8px 0}.cat .t{height:8px;background:var(--in);border-radius:4px;overflow:hidden}.cat .t i{display:block;height:100%;background:var(--ac)}
+.empty{text-align:center;padding:18px 8px;color:var(--mu)}
+label{font-size:13px;color:var(--mu);display:block;margin-bottom:3px}
+#toast{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:9px 16px;border-radius:20px;font-size:14px;display:none;z-index:9}
+.tag{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--in);color:var(--mu)}.tag.late{color:var(--bad)}
+</style></head><body><main id="app"></main>
+<nav id="nav"></nav><div id="toast" role="status"></div>
+<script>
+var K='steadyflow_v1',CATS=['Food','Transport','Home','Health','Family','Fun','Giving','Other'],
+CURS=['USD','EUR','GBP','PKR','INR','AED','SAR','CAD','AUD','NGN','KES','ZAR','BDT','PHP','TRY','EGP'],
+DEF={cur:'USD',buf:15,start:0,theme:'',inc:[],bills:[],sp:[]},S,tab='today',vm='';
+function load(){try{S=Object.assign({},DEF,JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){S=Object.assign({},DEF)}}
+function save(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Storage is blocked in this browser. Use Settings > Download backup.')}}
+function $(i){return document.getElementById(i)}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function today(){return new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function fmt(n){try{return new Intl.NumberFormat(undefined,{style:'currency',currency:S.cur}).format(n)}catch(e){return S.cur+' '+n.toFixed(2)}}
+function toast(m){var t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(function(){t.style.display='none'},2600)}
+function sum(a,f){return a.reduce(function(s,x){return s+f(x)},0)}
+function cm(){return today().slice(0,7)}
+function billDue(b,m){return (b.rep||b.month===m)}
+function paidAmt(b){return sum(Object.keys(b.paid||{}),function(k){return b.paid[k]})}
+function calc(){var m=cm(),inc=sum(S.inc,function(x){return x.a}),hold=sum(S.inc,function(x){return x.h}),
+spent=sum(S.sp,function(x){return x.a}),paid=sum(S.bills,paidAmt),
+due=sum(S.bills.filter(function(b){return billDue(b,m)&&!(b.paid&&b.paid[m])}),function(b){return b.a});
+return{inc:inc,hold:hold,spent:spent,paid:paid,due:due,safe:S.start+inc-hold-spent-paid-due}}
+function mkey(d){return d.slice(0,7)}
+function shiftM(m,n){var p=m.split('-'),d=new Date(+p[0],+p[1]-1+n,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+function mLabel(m){var p=m.split('-');return new Date(+p[0],+p[1]-1,1).toLocaleString(undefined,{month:'short'})}
+var TABS=[['today','Today'],['income','Income'],['bills','Bills'],['spend','Spending'],['month','Month'],['set','Settings']];
+function go(t){tab=t;render()}
+function render(){document.documentElement.setAttribute('data-t',S.theme||(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));
+$('nav').innerHTML=TABS.map(function(t){return '<button class="'+(t[0]===tab?'on':'')+'" onclick="go(\''+t[0]+'\')">'+t[1]+'</button>'}).join('');
+$('app').innerHTML='<h1>Steady Flow</h1>'+({today:vToday,income:vIncome,bills:vBills,spend:vSpend,month:vMonth,set:vSet}[tab])();window.scrollTo(0,0)}
+function vToday(){var c=calc(),m=cm(),empty=!S.inc.length&&!S.bills.length&&!S.sp.length;
+var tot=Math.max(c.hold+c.spent+c.paid+c.due+Math.max(c.safe,0),1);
+function w(v){return Math.max(v,0)/tot*100+'%'}
+var h='<div class="card"><div class="mu">Safe to spend</div><div class="big '+(c.safe<0?'neg':'')+'">'+fmt(c.safe)+'</div>'+
+'<div class="mu">'+(c.safe<0?'You are over. Hold off on extras until more money comes in.':'This is what is left after bills still due and your buffer.')+'</div>'+
+'<div class="bar"><i style="width:'+w(c.spent+c.paid)+';background:var(--mu)"></i><i style="width:'+w(c.due)+';background:var(--bad)"></i><i style="width:'+w(c.hold)+';background:var(--buf)"></i><i style="width:'+w(c.safe)+';background:var(--ok)"></i></div>'+
+'<div class="key"><span style="--c:var(--mu)">Spent '+fmt(c.spent+c.paid)+'</span><span style="--c:var(--bad)">Bills due '+fmt(c.due)+'</span><span style="--c:var(--buf)">Buffer '+fmt(c.hold)+'</span><span style="--c:var(--ok)">Safe</span></div></div>';
+if(empty)h+='<div class="card empty">Nothing here yet. Add income first, then your bills.<br><br><button class="btn" onclick="go(\'income\')">Add income</button> <button class="btn g" onclick="demo()">Load example data</button></div>';
+h+='<div class="card"><b>Quick spend</b><div class="row" style="margin-top:8px"><input id="qa" type="number" step="any" inputmode="decimal" placeholder="Amount"><select id="qc">'+CATS.map(function(x){return '<option>'+x+'</option>'}).join('')+'</select></div><button class="btn" onclick="addSp(\'q\')">Log spend</button></div>';
+var db=S.bills.filter(function(b){return billDue(b,m)&&!(b.paid&&b.paid[m])}).sort(function(a,b){return a.d-b.d});
+h+='<div class="card"><b>Bills still due this month</b>'+(db.length?db.map(billRow).join(''):'<div class="mu" style="margin-top:6px">All clear. No unpaid bills this month.</div>')+'</div>';return h}
+function billRow(b){var m=cm(),late=b.d<+today().slice(8),p=b.paid&&b.paid[m];
+return '<div class="li"><div><b>'+esc(b.n)+'</b><br><span class="mu">Due day '+b.d+(b.rep?' · monthly':' · once')+'</span> '+(!p&&late?'<span class="tag late">past due day</span>':'')+'</div><div class="r">'+fmt(b.a)+'<br>'+
+(p?'<button class="btn g s" onclick="unpay(\''+b.id+'\')">Undo paid</button>':'<button class="btn s" onclick="pay(\''+b.id+'\')">Mark paid</button>')+'</div></div>'}
+function pay(id){S.bills.forEach(function(b){if(b.id===id){b.paid=b.paid||{};b.paid[cm()]=b.a}});save();render();toast('Marked paid')}
+function unpay(id){S.bills.forEach(function(b){if(b.id===id&&b.paid)delete b.paid[cm()]});save();render()}
+function vIncome(){var h='<div class="card"><b>Money in</b><div class="mu" style="margin-bottom:8px">Each time you get paid, '+S.buf+'% is set aside as your buffer for lean months.</div>'+
+'<div class="row"><input id="ia" type="number" step="any" inputmode="decimal" placeholder="Amount"><input id="id" type="date" value="'+today()+'"></div><div class="row"><input id="is" placeholder="Source (client, job, gift)"></div><button class="btn" onclick="addInc()">Add income</button></div>';
+var l=S.inc.slice().sort(function(a,b){return b.d<a.d?-1:1});
+h+='<div class="card">'+(l.length?l.slice(0,60).map(function(x){return '<div class="li"><div><b>'+esc(x.s||'Income')+'</b><br><span class="mu">'+x.d+' · buffer '+fmt(x.h)+'</span></div><div class="r">'+fmt(x.a)+'<br><button class="btn d s" onclick="del(\'inc\',\''+x.id+'\')">Delete</button></div></div>'}).join(''):'<div class="empty">No income yet.</div>')+'</div>';return h}
+function addInc(){var a=parseFloat($('ia').value);if(!(a>0))return toast('Enter an amount above 0');
+S.inc.push({id:uid(),a:a,d:$('id').value||today(),s:$('is').value.trim(),h:Math.round(a*S.buf)/100});save();render();toast('Income added')}
+function vBills(){var h='<div class="card"><b>Add a bill</b><div class="row" style="margin-top:8px"><input id="bn" placeholder="Name (rent, internet)"></div><div class="row"><input id="ba" type="number" step="any" inputmode="decimal" placeholder="Amount"><input id="bd" type="number" min="1" max="31" placeholder="Due day (1-31)"></div>'+
+'<div class="row"><select id="br"><option value="1">Repeats every month</option><option value="0">This month only</option></select></div><button class="btn" onclick="addBill()">Add bill</button></div>';
+var m=cm(),l=S.bills.filter(function(b){return billDue(b,m)}).sort(function(a,b){return a.d-b.d});
+h+='<div class="card"><b>This month</b>'+(l.length?l.map(function(b){return billRow(b)+'<div style="text-align:right;margin-top:-6px"><button class="btn d s" onclick="del(\'bills\',\''+b.id+'\')">Delete bill</button></div>'}).join(''):'<div class="empty">No bills yet.</div>')+'</div>';return h}
+function addBill(){var a=parseFloat($('ba').value),d=parseInt($('bd').value,10),n=$('bn').value.trim();
+if(!n||!(a>0)||!(d>=1&&d<=31))return toast('Add a name, an amount and a due day from 1 to 31');
+S.bills.push({id:uid(),n:n,a:a,d:d,rep:$('br').value==='1',month:cm(),paid:{}});save();render();toast('Bill added')}
+function vSpend(){var h='<div class="card"><b>Log spending</b><div class="row" style="margin-top:8px"><input id="sa" type="number" step="any" inputmode="decimal" placeholder="Amount"><select id="sc">'+CATS.map(function(x){return '<option>'+x+'</option>'}).join('')+'</select></div><div class="row"><input id="sn" placeholder="Note (optional)"><input id="sd" type="date" value="'+today()+'"></div><button class="btn" onclick="addSp()">Log spend</button></div>';
+var l=S.sp.slice().sort(function(a,b){return b.d<a.d?-1:1});
+h+='<div class="card">'+(l.length?l.slice(0,60).map(function(x){return '<div class="li"><div><b>'+esc(x.c)+'</b> <span class="mu">'+esc(x.n)+'</span><br><span class="mu">'+x.d+'</span></div><div class="r">'+fmt(x.a)+'<br><button class="btn d s" onclick="del(\'sp\',\''+x.id+'\')">Delete</button></div></div>'}).join(''):'<div class="empty">Nothing logged yet.</div>')+'</div>';return h}
+function addSp(q){var a=parseFloat($(q?'qa':'sa').value);if(!(a>0))return toast('Enter an amount above 0');
+S.sp.push({id:uid(),a:a,c:$(q?'qc':'sc').value,n:q?'':$('sn').value.trim(),d:q?today():($('sd').value||today())});save();render();toast('Spend logged')}
+function del(k,id){S[k]=S[k].filter(function(x){return x.id!==id});save();render()}
+function vMonth(){var m=vm||cm(),ms=[];for(var i=5;i>=0;i--)ms.push(shiftM(m,-i));
+function st(mm){var i=sum(S.inc.filter(function(x){return mkey(x.d)===mm}),function(x){return x.a}),
+o=sum(S.sp.filter(function(x){return mkey(x.d)===mm}),function(x){return x.a})+sum(S.bills,function(b){return (b.paid&&b.paid[mm])||0});return{i:i,o:o}}
+var t=st(m),mx=Math.max.apply(null,ms.map(function(x){var s=st(x);return Math.max(s.i,s.o)}).concat([1]));
+var h='<div class="card"><label>Month</label><input type="month" value="'+m+'" onchange="vm=this.value;render()"><div class="row" style="margin:14px 0 0"><div><div class="mu">Money in</div><b>'+fmt(t.i)+'</b></div><div><div class="mu">Money out</div><b>'+fmt(t.o)+'</b></div><div><div class="mu">Kept</div><b class="'+(t.i-t.o<0?'neg':'')+'">'+fmt(t.i-t.o)+'</b></div></div></div>';
+h+='<div class="card"><b>Last 6 months</b><div class="ch">'+ms.map(function(x){var s=st(x);return '<div><div class="p"><i title="In" style="height:'+s.i/mx*100+'%;background:var(--ok)"></i><i title="Out" style="height:'+s.o/mx*100+'%;background:var(--mu)"></i></div>'+mLabel(x)+'</div>'}).join('')+'</div><div class="key" style="margin-top:8px"><span style="--c:var(--ok)">In</span><span style="--c:var(--mu)">Out</span></div></div>';
+var cs={},tot=0;S.sp.filter(function(x){return mkey(x.d)===m}).forEach(function(x){cs[x.c]=(cs[x.c]||0)+x.a;tot+=x.a});
+var ks=Object.keys(cs).sort(function(a,b){return cs[b]-cs[a]});
+h+='<div class="card"><b>Spending by category</b>'+(ks.length?ks.map(function(k){return '<div class="cat"><div style="display:flex;justify-content:space-between"><span>'+esc(k)+'</span><span>'+fmt(cs[k])+'</span></div><div class="t"><i style="width:'+cs[k]/tot*100+'%"></i></div></div>'}).join(''):'<div class="empty">No spending logged this month.</div>')+'</div>';return h}
+function vSet(){return '<div class="card"><div class="row"><div><label>Currency</label><select onchange="S.cur=this.value;save();render()">'+CURS.map(function(c){return '<option'+(c===S.cur?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div><div><label>Buffer % of each income</label><input type="number" min="0" max="90" value="'+S.buf+'" onchange="S.buf=Math.min(90,Math.max(0,+this.value||0));save();toast(\'Applies to new income only\')"></div></div>'+
+'<div class="row"><div><label>Money you already have (starting balance)</label><input type="number" step="any" value="'+S.start+'" onchange="S.start=+this.value||0;save()"></div><div><label>Theme</label><select onchange="S.theme=this.value;save();render()"><option value="">Match device</option><option value="light"'+(S.theme==='light'?' selected':'')+'>Light</option><option value="dark"'+(S.theme==='dark'?' selected':'')+'>Dark</option></select></div></div></div>'+
+'<div class="card"><b>Back up your data</b><div class="mu" style="margin:4px 0 10px">Your budget is saved in this browser only. Clearing browser data erases it, so download a backup often.</div><button class="btn" onclick="exp()">Download backup</button> <button class="btn g" onclick="$(\'imp\').click()">Restore backup</button><input id="imp" type="file" accept=".json,application/json" style="display:none" onchange="imp(this)"></div>'+
+'<div class="card"><b>Start over</b><div class="mu" style="margin:4px 0 10px">Example data lets you explore. Reset deletes everything.</div><button class="btn g" onclick="demo()">Load example data</button> <button class="btn d" onclick="reset()">Reset all</button></div>'+
+'<p class="mu">Budgeting aid only. This is not financial, tax or legal advice.</p>'}
+function exp(){try{var b=new Blob([JSON.stringify(S)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='steady-flow-backup-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();toast('Backup downloaded')}catch(e){toast('Download failed in this browser')}}
+function imp(el){var f=el.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var d=JSON.parse(r.result);if(!d||!Array.isArray(d.inc)||!Array.isArray(d.bills)||!Array.isArray(d.sp))throw 0;S=Object.assign({},DEF,d);save();render();toast('Backup restored')}catch(e){toast('That file is not a Steady Flow backup')}};r.readAsText(f)}
+function reset(){if(confirm('Delete all your data? This cannot be undone.')){S=Object.assign({},DEF,{inc:[],bills:[],sp:[]});save();render()}}
+function demo(){if((S.inc.length||S.bills.length||S.sp.length)&&!confirm('This replaces your current data with example data. Continue?'))return;
+var m=cm(),d=function(n){return m+'-'+String(n).padStart(2,'0')};
+S=Object.assign({},DEF,{cur:S.cur,theme:S.theme,buf:15,inc:[{id:uid(),a:1200,d:d(2),s:'Client A (example)',h:180},{id:uid(),a:450,d:d(9),s:'Weekend job (example)',h:67.5}],
+bills:[{id:uid(),n:'Rent (example)',a:500,d:5,rep:true,month:m,paid:{}},{id:uid(),n:'Phone (example)',a:25,d:20,rep:true,month:m,paid:{}},{id:uid(),n:'Electric (example)',a:80,d:25,rep:true,month:m,paid:{}}],
+sp:[{id:uid(),a:60,c:'Food',n:'Groceries',d:d(3)},{id:uid(),a:15,c:'Transport',n:'',d:d(4)}]});save();tab='today';render();toast('Example data loaded')}
+load();render();
+</script></body></html>
